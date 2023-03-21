@@ -35,7 +35,7 @@ rule all:
          expand("raw_data/{sample}_qc.txt", sample=samples.index),
          expand("alignment/{sample}.sam", sample=samples.index),
          expand("alignment/{sample}_sorted.bam", sample=samples.index),
-         expand("alignment/{sample}_sorted_marked.bam", sample=samples.index),
+         expand("alignment/{sample}_sorted_dedup.bam", sample=samples.index),
          expand("alignment/{sample}_metrics.txt", sample=samples.index),
          expand("alignment/{sample}.grp", sample=samples.index),
          expand("alignment/{sample}_improved.bam", sample=samples.index),
@@ -87,7 +87,7 @@ rule sortsam:
 rule markduplicates:
     input: "alignment/{sample}_sorted.bam"
     output: 
-         bam="alignment/{sample}_sorted_marked.bam",
+         bam="alignment/{sample}_sorted_dedup.bam",
          metrics="alignment/{sample}_metrics.txt"
     params: extra="VALIDATION_STRINGENCY=SILENT OPTICAL_DUPLICATE_PIXEL_DISTANCE=100 CREATE_INDEX=true CREATE_MD5_FILE=true"
     log: "logs/picard/markduplicated/{sample}_markduplicates.log"
@@ -98,7 +98,7 @@ rule markduplicates:
 
 rule basereclibrator:
     input:
-        bam="alignment/{sample}_sorted_marked.bam",
+        bam="alignment/{sample}_sorted_dedup.bam",
         ref="",
         dict="",
         known="",
@@ -120,7 +120,7 @@ rule basereclibrator:
 
 rule applybqsr:
     input:
-        bam="alignment/{sample}_sorted_marked.bam",
+        bam="alignment/{sample}_sorted_dedup.bam",
         ref="",
         dict="",
         recal_table="alignment/{sample}.grp",
