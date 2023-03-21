@@ -37,6 +37,8 @@ rule all:
          expand("alignment/{sample}_sorted.bam", sample=samples.index),
          expand("alignment/{sample}_sorted_marked.bam", sample=samples.index),
          expand("alignment/{sample}_metrics.txt", sample=samples.index),
+         expand("alignment/{sample}.grp", sample=samples.index),
+         expand("alignment/{sample}_improved.bam", sample=samples.index),
          expand("qc/multiqc_report.html", sample=samples.index, read=READ)
 
 
@@ -66,7 +68,7 @@ rule bwa:
     output: "alignment/{sample}.sam"
     params: rg="@RG\\tID:{sample}\\tPL:Illumina\\tSM:{sample}\\tLB:WES"
     threads: 1
-    log: "logs/bwa_mem/{sample}_aln.log"
+    log: "logs/bwa/{sample}_aln.log"
     shell: 
         """
         bwa mem -R '{params.rg}' -t {threads} {input} > {output} 2> {log}
@@ -76,7 +78,7 @@ rule sortsam:
     input: "alignment/{sample}.sam"
     output: "alignment/{sample}_sorted.bam"
     params: sort_order="coordinate"
-    log: "logs/picard/{sample}_sortsam.log"
+    log: "logs/picard/sortsam/{sample}_sortsam.log"
     shell:
         """
         picard SortSam INPUT={input} OUTPUT={output} SORT_ORDER={params.sort_order} CREATE_INDEX=true CREATE_MD5_FILE=true 2> {log}
@@ -88,10 +90,52 @@ rule markduplicates:
          bam="alignment/{sample}_sorted_marked.bam",
          metrics="alignment/{sample}_metrics.txt"
     params: extra="VALIDATION_STRINGENCY=SILENT OPTICAL_DUPLICATE_PIXEL_DISTANCE=100 CREATE_INDEX=true CREATE_MD5_FILE=true"
-    log: "logs/picard/{sample}_markduplicates.log"
+    log: "logs/picard/markduplicated/{sample}_markduplicates.log"
     shell:
         """
         picard MarkDuplicates INPUT={input} OUTPUT={output.bam} METRICS_FILE={output.metrics} {params.extra} 2> {log}
+        """
+
+rule basereclibrator:
+    input:
+        bam="alignment/{sample}_sorted_marked.bam",
+        ref="",
+        dict="",
+        known="",
+        known_mills="",
+        known_indels="",
+    output:
+        recal_table="alignment/{sample}.grp",
+    log:
+        "logs/gatk/baserecalibrator/{sample}.log",
+    params:
+        extra="",
+        java_opts="",
+    resources:
+        mem_mb=1024,
+    shell:
+        """
+        gatk --java-options '{java_opts}' BaseRecalibrator --input {snakemake.input.bam} --reference {snakemake.input.ref} {known} {known_mills} {known_indels} {extra} --output {snakemake.output.recal_table}  2> {log}
+        """
+
+rule applybqsr:
+    input:
+        bam="alignment/{sample}_sorted_marked.bam",
+        ref="",
+        dict="",
+        recal_table="alignment/{sample}.grp",
+    output:
+        bam="alignment/{sample}_improved.bam",
+    log:
+        "logs/gatk/gatk_applybqsr/{sample}.log",
+    params:
+        extra="",
+        java_opts=""
+    resources:
+        mem_mb=1024,
+    shell:
+        """
+        gatk --java-options '{java_opts}' ApplyBQSR --input {snakemake.input.bam} --bqsr-recal-file {snakemake.input.recal_table} --reference {reference} {extra} --tmp-dir {tmpdir} --output {output} 2> {log}"
         """
 
 rule fastqc:
@@ -106,9 +150,8 @@ rule multiqc:
         expand("raw_data/{sample}_{read}_fastqc.html", sample=samples.index, read=READ),
         expand("raw_data/{sample}_{read}_fastqc.zip", sample=samples.index, read=READ),
         expand("raw_data/{sample}_{read}_qc.txt", sample=samples.index, read=READ),
-        expand("alignment/{sample}_metrics.txt", sample=samples.index, read=READ)
+        expand("alignment/{sample}_metrics.txt", sample=samples.index),
+        expand("alignment/{sample}.grp", sample=samples.index) 
      output: "qc/multiqc_report.html"
      shell: "multiqc -f -o unaligned {input} --no-data-dir"
-
-
 
