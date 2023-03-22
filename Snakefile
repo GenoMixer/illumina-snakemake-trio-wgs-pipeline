@@ -111,11 +111,12 @@ rule basereclibrator:
     params:
         extra="",
         java_opts="",
+        tmp_dir="scratch"
     resources:
         mem_mb=1024,
     shell:
         """
-        gatk --java-options '{java_opts}' BaseRecalibrator --input {snakemake.input.bam} --reference {snakemake.input.ref} {known} {known_mills} {known_indels} {extra} --output {snakemake.output.recal_table}  2> {log}
+        gatk --java-options '{java_opts}' BaseRecalibrator --input {snakemake.input.bam} --reference {snakemake.input.ref} --known-sites {known} --known-sites {known_mills} --known-sites {known_indels} {extra} --output {snakemake.output.recal_table}  --tmp-dir {params.tmpdir} 2> {log}
         """
 
 rule applybqsr:
