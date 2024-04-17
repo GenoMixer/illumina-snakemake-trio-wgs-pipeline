@@ -63,7 +63,7 @@ rule BWA:
     output: 
         sam=temp("results/{sample}/{sample}.sam")
     params: 
-        rg="@RG\\tID:{sample}\\tPL:Illumina\\tSM:{sample}\\tLB:WES"
+        rg="@RG\\tID:{sample}\\tSM:{sample}\\tLB:WES\\tPL:Illumina"
     log: 
         "logs/bwa/{sample}_bwa.log"
     resources:
@@ -72,7 +72,7 @@ rule BWA:
         mem_mb=""
     shell: 
         """
-        bwa mem -R '{params.rg}' -t {resources.threads} {input} > {output} 2> {log}
+        bwa mem -M -R '{params.rg}' -t {resources.threads} {input} > {output} 2> {log}
         """
 
 
